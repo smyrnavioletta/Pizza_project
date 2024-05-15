@@ -7,21 +7,29 @@ function createDataBase() {
     const data = [];
 
     function loadData(url, category) {
-        return fetch(url)  // Додав повернення промісу для ланцюжка
-            .then(response => response.json())
+        return fetch(url)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(items => {
                 items.forEach(item => {
                     data.push(createProduct(item.name, item.urlImg, item.price, item.id, category));
                 });
-                return data;  // Повертаємо дані для подальшої обробки
+                return data;
+            })
+            .catch(error => {
+                console.error('Error loading data:', error);
             });
     }
 
     return {
-        init: function() {  // Ініціалізація завантаження даних
+        init: function() {
             return Promise.all([
-                loadData('/data/db-pizzas.json', 'pizzas'),
-                loadData('/data/db-drinks.json', 'drinks')
+                loadData('./data/db-pizzas.json', 'pizzas'),
+                loadData('./data/db-drinks.json', 'drinks')
             ]);
         },
         getProduct: function(category) {
@@ -33,40 +41,16 @@ function createDataBase() {
     };
 }
 
-function createProductView(database) {
-    function renderProducts(products, containerSelector) {
-        const container = document.querySelector(containerSelector);
-        container.innerHTML = '';
-        products.forEach(product => {
-            container.innerHTML += `
-                <div class="product-card">
-                    <img src="${product.urlImg}" alt="${product.name}" />
-                    <h4>${product.name}</h4>
-                    <span>${product.price}</span>
-                    <button data-id="${product.id}">Купити</button>
-                </div>
-            `;
-        });
-    }
-
-    function setupEventListeners(categoryButtonSelector, containerSelector) {
-        document.querySelectorAll(categoryButtonSelector).forEach(button => {
-            button.addEventListener('click', () => {
-                const products = database.getProduct(button.dataset.category);
-                renderProducts(products, containerSelector);
-            });
-        });
-    }
-
-    return { setupEventListeners };
-}
-
 document.addEventListener('DOMContentLoaded', () => {
     const db = createDataBase();
     const productView = createProductView(db);
-    
-    db.init().then(() => {  // Запускаємо ініціалізацію бази даних
+    const basket = createBasket();
+
+    db.init().then(() => {
         productView.setupEventListeners('button[data-category]', '.container-products');
+        basket.render('.basket');
+    }).catch(error => {
+        console.error('Error initializing database:', error);
     });
 });
 
